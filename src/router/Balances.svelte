@@ -514,7 +514,7 @@ async function waitUserInput() {
     const userResponse = await waitUserInput();
      
     if(userResponse){
-      //stakeSoul(keys.Address.toString(),sendAmount,gasLimit,gasPrice,sendTokenDecimals).then(()=>{getBalances()});
+      stakeSoul(keys.Address.toString(),sendAmount,gasLimit,gasPrice,sendTokenDecimals).then(()=>{getBalances()});
       console.log("Transaction confirmed")
       stakeSoulModal=false;
       isTransactionConfirmed=false;
@@ -691,9 +691,9 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
     const userResponse = await waitUserInput();
      
     if(userResponse){
-      //triggerInflation(keys.Address).then(()=>{getBalances();});
+      triggerInflation(keys.Address).then(()=>{getBalances();});
       console.log("Transaction confirmed")
-      stakeSoulModal=false;
+      
       isTransactionConfirmed=false;
     } else{
       console.log("Transaction Cancelled") 
@@ -713,9 +713,8 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
     const userResponse = await waitUserInput();
      
     if(userResponse){
-      //claimSoulMasterReward(keys.Address).then(()=>{getBalances();});
+      claimSoulMasterReward(keys.Address).then(()=>{getBalances();});
       console.log("Transaction confirmed")
-      stakeSoulModal=false;
       isTransactionConfirmed=false;
     } else{
       console.log("Transaction Cancelled") 
@@ -747,6 +746,7 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
                     class="flex-shrink-0"
                     style="width: 40px; height: 40px; object-fit: contain !important; " 
                     onerror="this.onerror=null;this.src='../src/assets/UNKNOWN.png';"
+                    
                    />
                    `
                    :` ${tokenBalance.Ticker==="SOUL" && !isCrowner ?

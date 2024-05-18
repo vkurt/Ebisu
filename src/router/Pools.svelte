@@ -244,7 +244,7 @@
 
     // updatedPoolsForArbitrage=[];
     // updatedPoolsForArbitrage.push(
-    //   {PoolName: "SOUL_KCAL",
+    //    {PoolName: "SOUL_KCAL",
     //     Token1Ticker: "SOUL",
     //     Token1Amount: "3012.20230435",
     //     Token1Decimals: 8,
@@ -253,9 +253,10 @@
     //     Token2Decimals: 10,
     //     IsRelativePricePool: false,
     //     IsDivisorPool: false,
-    //   },
+    //   },{ 
         
-    //    { PoolName: "RAA_SOUL",
+        
+    //     PoolName: "RAA_SOUL",
     //     Token1Ticker: "RAA",
     //     Token1Amount: "70.1126716334343",
     //     Token1Decimals: 18,
@@ -264,7 +265,9 @@
     //     Token2Decimals: 8,
     //     IsRelativePricePool: false,
     //     IsDivisorPool: false},
-
+        
+        
+        
     //     {PoolName: "RAA_KCAL",
     //     Token1Ticker: "RAA",
     //     Token1Amount: "24.5154566825775",
@@ -943,8 +946,9 @@
       let relativePoolPrice = 0;
 
       relativePoolPrice =
-        BigNumber(InPoolForArb.OutTickerReserve).toNumber() /
-        BigNumber(InPoolForArb.InTickerReserve).toNumber();
+         BigNumber(InPoolForArb.InTickerReserve).toNumber()/BigNumber(InPoolForArb.OutTickerReserve).toNumber()
+        ;
+        
 
       console.log("relativepool= in pool");
 
@@ -1008,7 +1012,7 @@
     }
 
     let amountForZeroProfit =
-      poolReserveDifference /
+      poolReserveDifference *
       (BigNumber(TransitPoolForArb.InTickerReserve).toNumber() /
         BigNumber(InPoolForArb.OutTickerReserve).toNumber() /
         (BigNumber(TransitPoolForArb.OutTickerReserve).toNumber() /
@@ -1033,8 +1037,8 @@
       
        
       console.log(
-        "StepPercent_" + stepPercent + "\nShift Amount_" + shiftAmount +"\nMin guess "+minGuess + "\nMax Guess "+maxGuess +"\nAmount For Zero Profit_" + amountForZeroProfit
-      );
+        "%cStepPercent_" + stepPercent + "\nShift Amount_" + shiftAmount +"\nMin guess "+BigNumber(minGuess).toNumber() + "\nMax Guess "+maxGuess +"\nAmount For Zero Profit_" + BigNumber(amountForZeroProfit).toNumber()+"\nPrecision "+precision
+        ,' color:   #55fe01 ');
       
       if (BigNumber(profitAmount).isLessThan(0) && BigNumber(amountForZeroProfit).isGreaterThan(shiftAmount)) {
         amountForZeroProfit = amountForZeroProfit - shiftAmount;
@@ -1074,19 +1078,19 @@
 
       
     }
+    optimizedAmount = amountForZeroProfit / 2;
+      arbAmount = optimizedAmount;
+      calculateArbitrageAmounts(arbAmount);
     if (profitAmount>minProfit){
       isOptimizationSuccessfull=true;
     }else{isOptimizationSuccessfull=false;
       arbAmount=0;
+      optimizedAmount=0;
+      profitAmount=0;
     }
 
     console.log("%c*****************************************************************\n"+"*  Optimization ended after trying "+ tries+" times, is success "+isOptimizationSuccessfull +"  *" + "*\n"+"*****************************************************************",'background:  #55fe01  ; color:   #fe0101 ');
-    if(isOptimizationSuccessfull){
-
-      optimizedAmount = amountForZeroProfit / 2;
-      arbAmount = optimizedAmount;
-      calculateArbitrageAmounts(arbAmount);
-    }
+    
     
   }
 
