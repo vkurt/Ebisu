@@ -17,12 +17,18 @@
     TableHead,
     TableHeadCell,
     ImagePlaceholder,
-    Label, Input, Checkbox,
-    Modal} from "flowbite-svelte";
+    Range, 
+    Label, 
+    Input, 
+    Checkbox,
+    Modal,
+    Spinner,
+    Toast,
+    Textarea 
+     } from "flowbite-svelte";
 
-  import { slide } from 'svelte/transition';
-  import { formatDiagnostic } from "typescript";
-
+     import { slide } from 'svelte/transition';
+      import { quintOut } from "svelte/easing";
   let fmt = {
     decimalSeparator: ".",
     groupSeparator: " ",
@@ -56,6 +62,9 @@
   let isSoulMasterRewardTime:boolean=false;
   let isCrowner:boolean=false;
 
+  let openInfoToast=false;
+  let InfoMessage:string[]=[];
+
   let sendTokenModal = false;  // Send Modal variables common for some other modals too
   let modalTokenTicker = '';
   let modalMaxAmount = 0;
@@ -66,6 +75,20 @@
   let unStakeSoulModal=false; // unStake Soul Modal variables
   let isUnstakeTime=false;
 
+  let sendNftModal=false; // Send nft modal variables
+  let modalNftIds:string[]=[];
+  let modalNftTicker="";
+  let dataForShowSendNft:{
+    ticker:string,
+    id:number,
+    properties:{key:string,value:string}[],
+    infusion:{key:string,value:string}[]
+  }[]=[];
+
+  let selectedNfts:{nftTicker:string,nftId:number}[] = [];
+  let NftSendButtonDisable=false;
+  
+  
   let confirmModal=false;
   let confirmModalMessage:string[]=[];
   let isTransactionConfirmed=false;
@@ -78,13 +101,17 @@
   let sendTokenTicker="";
   let sendTokenDecimals=0;
   let feeTokenBalance:BigNumber;
+  const feeAdjustStep=10000;
+  const feeTokenDecimals=10;
+  let feeAmount="0.21";
+  
 
-  let WIF = import.meta.env.VITE_PRIVATE_KEY; //WIF format
+  let WIF = import.meta.env.VITE_PRIVATE_KEY_2; //WIF format
   const keys = PhantasmaKeys.fromWIF(WIF);
   let chain = "main";
   let network = "testnet";
   let gasPrice = 100000;
-  let gasLimit = 100000;
+  let gasLimit = 21000;
   let payload = Base16.encode("Yurei"); //Says 'Yurei' in hex
   let address = keys.Address; // 
     let rpcLink = "https://testnet.phantasma.info/rpc"; // https://testnet.phantasma.info/rpc https://pharpc1.phantasma.info/rpc
@@ -171,9 +198,7 @@
     isUnclaimedKcalZero = BigNumber(balanceResponse.unclaimed).isEqualTo(0);
     
 
-    if (!isStakeAmountZero && !isSoulInBalances) {
-      tokenBalances.push({ Ticker: "SOUL", Amount: "0", Decimals: 8 });
-    }
+    
 
     if (isStakeAmountZero){
       minStakeAmount=2;
@@ -202,9 +227,6 @@
         sb2.CallContract("stake","GetMasterClaimDateForAddress",[address])
         const script2 = sb2.EndScript();
         const response2 = await RPC.invokeRawScript(chain, script2);
-        
-
-        
 
         const masterCountDecode = new Decoder(response.results[0]).readVmObject();
         const isSoulMasterDecoder = new Decoder(response.results[1]).readVmObject();
@@ -291,75 +313,84 @@
       isSoulMasterRewardTime=true;
     }else{isSoulMasterRewardTime=false;}
     
-    console.log("Stake Timestamp_"+getStakeTimestampDecoder);
-    console.log("Time For Unstake_" + timeForUnstake);
-    console.log("Remained Time For Unstahe_"+remainedTimeForUnstake);
-    console.log("Message For remaining timeForUnstake_"+timeRemainedForUnstake);
-    console.log("Estimated SoulMaster Reward_"+soulMasterReward)
-    console.log("SoulMaster Count_"+masterCount);
-    console.log("Is SoulMaster_" +isSoulMaster);
-    console.log("Tokens In account_"+tokenBalances.length);
-    console.log("Nft Tokens In account_"+nftBalances.length);
-    console.log("Next Inflation Timestamp_"+nextInflationDateDecoder);
-    console.log("Next InflationDistribution is on_"+d.toLocaleDateString());
-    console.log("Current Time_"+currentTime);
-    console.log("Last Inflation Tımestamp_"+lastInflationDateDecoder)
-    console.log("Remained Time For Kcal Generation_"+remainedTimeForKcalGeneration);
-    console.log("Crown distribution info_"+crownDistiributionInfo);
-    console.log("First SoulMaster Reward claim date_"+getFirstMasterClaimDateForAddressDecoder);
-    console.log("Remained time for crown_"+remainedTimeForCrown);
-    console.log("NFT Balances\n"+nftBalances);
-    console.log("Token Balances\n"+tokenBalances);
-    console.log("Master Claim Date_"+getMasterClaimDateDecoder);
-    console.log(isUnclaimedKcalZero);
-    console.log(
-      "Unclaimed Kcal_" + unclaimedKcal + "\nStaked Soul_" + stakedSoul
+    console.log("Stake Timestamp_"+getStakeTimestampDecoder+
+    "\nTime For Unstake_" + timeForUnstake+
+    "\nRemained Time For Unstahe_"+remainedTimeForUnstake+
+    "\nMessage For remaining timeForUnstake_"+timeRemainedForUnstake+
+    "\nEstimated SoulMaster Reward_"+soulMasterReward+
+    "\nSoulMaster Count_"+masterCount+
+    "\nIs SoulMaster_" +isSoulMaster+
+    "\nTokens In account_"+updatedTokenBalances.length+
+    "\nNft Tokens In account_"+UpdatedNftBalances.length+
+    "\nNext Inflation Timestamp_"+nextInflationDateDecoder+
+    "\nNext InflationDistribution is on_"+d.toLocaleDateString()+
+    "\nCurrent Time_"+currentTime+
+    "\nLast Inflation Timestamp_"+lastInflationDateDecoder+
+    "\nRemained Time For Kcal Generation_"+remainedTimeForKcalGeneration+
+    "\nCrown distribution info_"+crownDistiributionInfo+
+    "\nFirst SoulMaster Reward claim date_"+getFirstMasterClaimDateForAddressDecoder+
+    "\nRemained time for crown_"+remainedTimeForCrown+
+    "\nMaster Claim Date_"+getMasterClaimDateDecoder+
+    "\nIs unclaimed Kcal zero_"+isUnclaimedKcalZero+
+    "\nUnclaimed Kcal_" + unclaimedKcal + 
+    "\nStaked Soul_" + stakedSoul  
     );
+
   } catch (error) {
       console.log("error for get balances\n"+error)
     }
+
+    if (!isStakeAmountZero && !isSoulInBalances) {
+      updatedTokenBalances.splice(0,0,{ Ticker: "SOUL", Amount: "0", Decimals: 8 });
+    }
+
     nftBalances=UpdatedNftBalances;
     tokenBalances=updatedTokenBalances;
   }
+
   async function triggerInflation(from:Address){
     let expiration_date = new Date(new Date().valueOf() + 36000000);
     console.log("Trying to trigger inf");
     console.log("Tx expiration time:"+expiration_date);
-  let sbinf = new ScriptBuilder();
+  let trInfsb = new ScriptBuilder();
   
-      sbinf.AllowGas(from, Address.Null, gasPrice, gasLimit);
+  trInfsb.AllowGas(from, Address.Null, gasPrice, gasLimit);
       //sbinf.CallContract("gas","FixInflationTiming",[keys.Address,1710205200000])
-      sbinf.CallContract("gas", "ApplyInflation", [from]);
-      sbinf.SpendGas(from);   
-  let scriptInf = sbinf.EndScript();
+      trInfsb.CallContract("gas", "ApplyInflation", [from]);
+      trInfsb.SpendGas(from);   
+  let trInfScrip = trInfsb.EndScript();
 
     
   //Creating New Transaction Object
-  let transaction = new Transaction(
+  let trInfTransaction = new Transaction(
     network, //Nexus Name - if you're using mainnet change it to mainnet
     chain, //Chain
-    scriptInf, //In string format
+    trInfScrip, //In string format
     expiration_date, //Date Object
     payload //Extra Info to attach to Transaction in Serialized Hex
   );
 
   //Sign's Transaction with WIF
-  transaction.signWithKeys(keys);
+  trInfTransaction.signWithKeys(keys);
+    
     try {
-      const rawTx = Base16.encodeUint8Array(transaction.ToByteAray(true));
-
-  //Send Transaction
-  let txHash = await RPC.sendRawTransaction(rawTx);
-
-  //Return Transaction Hash
-  return txHash;
+        const rawTx = Base16.encodeUint8Array(trInfTransaction.ToByteAray(true));
+        console.log("Raw transaction: ", rawTx);
+        const txHash = await RPC.sendRawTransaction(rawTx);
+        console.log("Transaction hash: ", txHash);
+        await delay(5000);
+        let result = await RPC.getTransaction(txHash);
+        console.log("Transaction result: ", result);
+        return result;
     } catch (error) {
-      console.log("error"+error)
+        console.error('Error during transaction:', error);
+        throw error;
     }
   
+    
 
   }
-  async function claimSoulMasterReward(from:Address) {
+  async function claimSoulMasterReward(from:Address) { //waits 5 sec to get tx response
     let expiration_date = new Date(new Date().valueOf() + 36000000);
     let sbsmr = new ScriptBuilder();
   
@@ -371,7 +402,7 @@
 
     
   //Creating New Transaction Object
-  let transaction = new Transaction(
+  let smrTransaction = new Transaction(
     network, //Nexus Name - if you're using mainnet change it to mainnet
     chain, //Chain
     scriptsmr, //In string format
@@ -379,22 +410,25 @@
     payload //Extra Info to attach to Transaction in Serialized Hex
   );
 
-  //Sign's Transaction with WIF
-  transaction.signWithKeys(keys);
-    try {
-      const rawTx = Base16.encodeUint8Array(transaction.ToByteAray(true));
-
-  //Send Transaction
-  let txHash = await RPC.sendRawTransaction(rawTx);
-
-  //Return Transaction Hash
-  return txHash;
+  //Sign's Transaction with keys
+  smrTransaction.signWithKeys(keys);
+  try {
+        const rawTx = Base16.encodeUint8Array(smrTransaction.ToByteAray(true));
+        console.log("Raw transaction: ", rawTx);
+        const txHash = await RPC.sendRawTransaction(rawTx);
+        console.log("Transaction hash: ", txHash);
+        await delay(5000);
+        let result = await RPC.getTransaction(txHash);
+        console.log("Transaction result: ", result);
+        return result;
     } catch (error) {
-      console.log("error"+error)
+        console.error('Error during transaction:', error);
+        throw error;
     }
   }
+  
 
-  async function claimKcal(from:Address) {
+  async function claimKcal(from:Address) {  //waits 5 sec to get tx response
     let expiration_date = new Date(new Date().valueOf() + 36000000);
     let sbkcal = new ScriptBuilder();
   
@@ -406,7 +440,7 @@
 
     
   //Creating New Transaction Object
-  let transaction = new Transaction(
+  let claimKcaltransaction = new Transaction( 
     network, //Nexus Name - if you're using mainnet change it to mainnet
     chain, //Chain
     scriptkcal, //In string format
@@ -414,18 +448,22 @@
     payload //Extra Info to attach to Transaction in Serialized Hex
   );
 
-  //Sign's Transaction with WIF
-  transaction.signWithKeys(keys);
+  //Sign's Transaction with keys
+  claimKcaltransaction.signWithKeys(keys);
+    
+
     try {
-      const rawTx = Base16.encodeUint8Array(transaction.ToByteAray(true));
-
-  //Send Transaction
-  let txHash = await RPC.sendRawTransaction(rawTx);
-
-  //Return Transaction Hash
-  return txHash;
+        const rawTx = Base16.encodeUint8Array(claimKcaltransaction.ToByteAray(true));
+        console.log("Raw transaction: ", rawTx);
+        const txHash = await RPC.sendRawTransaction(rawTx);
+        console.log("Transaction hash: ", txHash);
+        await delay(5000);
+        let result = await RPC.getTransaction(txHash);
+        console.log("Transaction result: ", result);
+        return result;
     } catch (error) {
-      console.log("error"+error)
+        console.error('Error during transaction:', error);
+        throw error;
     }
  
   }
@@ -475,12 +513,14 @@
 const timeout = async ms => new Promise(res => setTimeout(res, ms));
 
 function checkFeeTokenBalanceIsEnough(){
+  feeAmount=BigNumber(gasLimit*gasPrice).shiftedBy(-feeTokenDecimals).toFormat();
   if(BigNumber(gasLimit*gasPrice).isLessThan(feeTokenBalance)){
     isFeeBalanceEnough=true;
-    feeWarning="You have enough Kcal according to your fee settings"
+    feeWarning="You have enough Kcal"
   }else{isFeeBalanceEnough=false;
     feeWarning="Check your fee settings or get some more Kcal"
   }
+
   
 
 }
@@ -545,7 +585,7 @@ async function waitUserInput() {
     return new Promise(resolve => setTimeout(resolve, time));
 }
 
-async function sendToken(from,to,token:string,decimals:number,amount,setGasPrice,setGasLimit) {
+async function sendToken(from,to,token:string,decimals:number,amount,setGasPrice,setGasLimit) { //waits 5sec for getting tx
 
 console.log("Send Token Data\n"+from+" "+to+" "+token+" "+decimals+" "+amount+" "+setGasPrice+" "+setGasLimit);
 let expiration_date = new Date(new Date().valueOf() + 36000000);
@@ -565,25 +605,45 @@ transaction.signWithKeys(keys);
 
     console.log("Sending Transaction: ");
     try {
+        openInfoToast=false;
+        InfoMessage=[];
         const rawTx = Base16.encodeUint8Array(transaction.ToByteAray(true));
-        console.log("Raw transaction: ", rawTx);
-        const txHash = await RPC.sendRawTransaction(rawTx);
+        console.log("Raw transaction: ");
+        InfoMessage.push("Sending Transaction");
+        openInfoToast=true;
+        const txHash = await RPC.sendRawTransaction(rawTx);    
         console.log("Transaction hash: ", txHash);
         await delay(5000);
         let result = await RPC.getTransaction(txHash);
         console.log("Transaction result: ", result);
-        return result;
+        openInfoToast=false;
+        InfoMessage=[]; 
+
+            if(result.state!==undefined && result.state!==null){
+              if(result.state.toString()=="Halt"){
+              InfoMessage.push("Transaction\n"+txHash.substring(0,15)+"..."+"\nSent successfully");
+              }else{
+                InfoMessage.push("Transaction "+txHash.substring(0,15)+"..."+" failed");
+            }
+          }else{InfoMessage.push("Cannot get Tx info check it on explorer\n"+ result.error
+          )};
+        
+        
     } catch (error) {
+        InfoMessage.push('Error during transaction:'+ error)
         console.error('Error during transaction:', error);
         throw error;
     }
+    openInfoToast=true;
+    
 }
 
-function copyMaxAmount() {
+function copyMaxAmount(event) {
+    event.preventDefault();
     sendAmount = modalMaxAmount;
   }
 
-  async function stakeSoul(from:string,amount,setGasLimit,setGasPrice,decimals) {
+  async function stakeSoul(from:string,amount,setGasLimit,setGasPrice,decimals) { //waits 5 sec for geeting tx response
 
     let expiration_date = new Date(new Date().valueOf() + 36000000);
     let stakeSb= new ScriptBuilder();
@@ -675,7 +735,6 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
       console.log("Transaction Cancelled") 
     };
 
-    // Additional form submission logic goes here
     
   }
 
@@ -683,6 +742,8 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
     
     confirmModalMessage=[];
     let messageLine1="You will get a crown";
+
+    gasLimit=200000;
     
     confirmModalMessage.push(messageLine1);
     checkFeeTokenBalanceIsEnough();
@@ -721,8 +782,206 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
     };
     
   }
+
+  async function confirmKcalClaim() {
+    
+    confirmModalMessage=[];
+    let messageLine1="You will claim "+unclaimedKcal+" Kcal";
+    
+    confirmModalMessage.push(messageLine1);
+    checkFeeTokenBalanceIsEnough();
+    confirmModal=true;
   
-  getBalances();
+    const userResponse = await waitUserInput();
+     
+    if(userResponse){
+      claimKcal(keys.Address).then(()=>{getBalances();})
+      console.log("Transaction confirmed")
+      
+      isTransactionConfirmed=false;
+    } else{
+      console.log("Transaction Cancelled") 
+    };
+    
+  }
+
+  async function handleSendNft(){
+
+    confirmModalMessage=[];
+    sendNftModal=false;
+
+    if(selectedNfts.length<0){
+      alert('Amount must be greater than 0');
+      return;
+    }
+
+    let messageLine1="You will Send "+selectedNfts.length+" "+ selectedNfts[0].nftTicker;
+    confirmModalMessage.push(messageLine1);
+    checkFeeTokenBalanceIsEnough();
+    confirmModal=true;
+
+    
+    
+    const userResponse = await waitUserInput();
+     
+    if(userResponse){
+      
+      console.log("Transaction confirmed")
+      sendNft(keys.Address.toString(),toAddress.toString()).then(()=>{getBalances()});
+      sendNftModal=false;
+      NftSendButtonDisable=false;
+      isTransactionConfirmed=false;
+      selectedNfts=[];
+    } else{
+      console.log("Transaction Cancelled") 
+      sendNftModal=true;
+      selectedNfts=[];
+    };
+
+
+
+  }
+
+  async function openSendNftModal(NftTicker, NftIds) {
+    modalNftIds = NftIds;
+    dataForShowSendNft=[];
+    selectedNfts=[];
+    NftSendButtonDisable=true;
+
+    const NftPromises = NftIds.map(async (nftId) => {
+        const nftDataResponse = await RPC.getNFT(NftTicker, nftId);
+        
+        let infusions : {key:string,value:string}[]= [];
+        let properties:{key:string,value:string}[] = [];
+
+        if (nftDataResponse.infusion.length > 0) {
+            nftDataResponse.infusion.forEach((infused) => {
+                infusions.push({ key: infused.key, value: infused.value });
+            });
+        }
+        if (nftDataResponse.properties.length > 0) {
+            nftDataResponse.properties.forEach((property) => {
+                properties.push({ key: property.key, value: property.value });
+            });
+        }
+        
+        
+        dataForShowSendNft.push({
+            ticker:NftTicker,
+            id: nftDataResponse.id,
+            infusion: infusions,
+            properties: properties
+        });
+    });
+   
+
+    await Promise.all(NftPromises).then(()=>NftSendButtonDisable=false);
+    
+    modalNftTicker = NftTicker;
+    sendNftModal = true;
+    
+    
+
+    // Print all data for dataForShowingNft
+    dataForShowSendNft.forEach((nftData) => {
+        console.log(`NFT ID: ${nftData.id}`);
+        console.log('Infusions:');
+        nftData.infusion.forEach((infusion) => {
+            console.log(`  Key: ${infusion.key}, Value: ${infusion.value}`);
+        });
+        console.log('Properties:');
+        nftData.properties.forEach((property) => {
+            console.log(`  Key: ${property.key}, Value: ${property.value}`);
+        });
+    });
+}
+
+// Function to get the NFT name from the properties array
+function getNftName(nftData) {
+    for (let property of nftData.properties) {
+      if (property.key === 'Name') {
+        return property.value;
+      }
+    }
+    // Return a placeholder if Name is not found
+    return 'Unnamed NFT';
+  }
+
+  function getNftDescription(nftData) {
+    for (let property of nftData.properties) {
+      if (property.key === 'Description') {
+        return property.value;
+      }
+    }
+    // Return a placeholder if Name is not found
+    return 'No description';
+  }
+
+  // Function to navigate to the Ghost Market page for the specific NFT
+  function goToMarketPage(ticker, id) {
+    // Construct the URL based on the ticker and ID
+    const url = `https://ghostmarket.io/asset/pha/${ticker}/${id}`;
+    // Open the URL in a new tab
+    window.open(url, '_blank');
+  }
+
+  function addRemoveFromNftList(nftId:number,nftTicker:string){
+
+    
+    console.log("Nft Data for process \n"+"Nft ID\t"+nftId+"\nNFT ticker\t"+nftTicker);
+
+    const index = selectedNfts.findIndex(nft => nft.nftId === nftId);
+    if (index === -1) {
+      selectedNfts.push({ nftId: nftId, nftTicker:nftTicker });
+
+    } else {
+      selectedNfts.splice(index, 1);
+    }
+
+    if(selectedNfts.length>0){
+      for(let i=0; i<selectedNfts.length ;i++)
+      console.log("Selected Nfts\n"+selectedNfts[i].nftId+" "+selectedNfts[i].nftTicker+" "+selectedNfts.length);
+    }else{console.log("list empty");}
+    
+    
+  }
+
+async function sendNft(from:string,to:string,){
+
+  
+let expiration_date = new Date(new Date().valueOf() + 36000000);
+let sendNftSb= new ScriptBuilder();
+
+sendNftSb.AllowGas(from, Address.Null, gasPrice, gasLimit);
+
+selectedNfts.forEach((nft)=>{
+  sendNftSb.CallInterop("Runtime.TransferToken", [from, to, nft.nftTicker, nft.nftId ]);
+})
+
+sendNftSb.SpendGas(from);
+
+let sendNftScript = sendNftSb.EndScript();
+
+let sendNftTransaction = new Transaction(network, chain, sendNftScript, expiration_date ,payload);
+
+sendNftTransaction.signWithKeys(keys);
+
+try {
+    const rawTx = Base16.encodeUint8Array(sendNftTransaction.ToByteAray(true));
+    console.log("Raw transaction: ", rawTx);
+    const txHash = await RPC.sendRawTransaction(rawTx);
+    console.log("Transaction hash: ", txHash);
+    await delay(5000);
+    let result = await RPC.getTransaction(txHash);
+    console.log("Transaction result: ", result.state);
+    return result;
+} catch (error) {
+    console.error('Error during transaction:', error);
+    throw error;
+}
+  }
+
+  getBalances().then(()=>checkFeeTokenBalanceIsEnough());
 </script>
 
 <div class="mx-10 text-gray-900 dark:text-white">
@@ -774,7 +1033,7 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
 
                   ${isSoulMaster && tokenBalance.Ticker==="SOUL" ?
                     `<img
-                      src="../src/assets/soul_masterv2.png"
+                      src="../src/assets/soul_master.png"
                       alt="SM"
                       class="flex-shrink-0"
                       style="width: 40px; height: 40px; object-fit: contain !important;"
@@ -820,7 +1079,7 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
                 <Button class="w-24" size="xs" disabled={!isSoulMasterRewardTime} outline color="blue" on:click={()=>confirmSmReward()}>Sm Reward</Button>
               {/if}
               {#if unclaimedKcal!=0 && unclaimedKcal != undefined && tokenBalance.Ticker==="KCAL"}
-                <Button class="w-24" size="xs" disabled={isUnclaimedKcalZero} outline color="blue" on:click={()=>claimKcal(keys.Address).then(()=>{getBalances();})}>Claim Kcal</Button>
+                <Button class="w-24" size="xs" disabled={isUnclaimedKcalZero} outline color="blue" on:click={()=>confirmKcalClaim()}>Claim Kcal</Button>
               {/if}
             </div>
           </div>
@@ -859,7 +1118,9 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
                 {/if}
               </div>
               <div class="grid grid-cols-1 justify-end">
-                <Button class="w-24" size="xs" outline>Send</Button> 
+                <Button class="w-24" size="xs" id="NftSendButton" outline on:click={()=>openSendNftModal(nftBalance.Ticker,nftBalance.Ids) } disabled={NftSendButtonDisable} >{#if NftSendButtonDisable} 
+                  <Spinner size="5" class="text-left dark:fill-white fill-black"  />
+                {/if} Send</Button> 
               </div>
             </div>
           </Card>
@@ -870,18 +1131,21 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
 </div>
 
 <Modal bind:open={sendTokenModal} size="xs" autoclose={false} class="w-full">
-  <form on:submit|preventDefault={handleSendToken} class="flex flex-col space-y-6" action="#">
+  <form on:submit|preventDefault={handleSendToken} class="flex flex-col space-y-6" action="">
     <h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">Send {modalTokenTicker}</h3>
     <Label class="space-y-2">
       <span>To</span>
       <Input type="text" name="To" placeholder="P2K..." required bind:value={toAddress}  />
     </Label>
     <Label class="space-y-2">
-      <span class="flex justify-between"><p>Amount to send</p> <button on:click={copyMaxAmount} style="cursor: pointer;">Max {modalMaxAmount}</button></span>
+      <span class="flex justify-between"><p>Amount to send</p> <button id="copyMaxAmountToken" on:click={copyMaxAmount} style="cursor: pointer;">Max {modalMaxAmount}</button></span>
       <Input type="number" name="sendAmount" required bind:value={sendAmount} max={modalMaxAmount} min="0" step="any" pattern="[0-9]+(\.[0-9]+)?" />
-    </Label>
     
-    <Button type="submit" class="w-full1">Send</Button>
+    </Label>
+    <Label>Adjust Fee</Label>
+    <Range id="range-steps" min="10000" max="200000" bind:value={gasLimit} on:change={()=>checkFeeTokenBalanceIsEnough()} step="{feeAdjustStep}" />
+    <p>{feeAmount} Kcal, {feeWarning}</p>
+    <Button  class="w-full1" type="submit">Send</Button>
     
   </form>
 </Modal>
@@ -891,11 +1155,11 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
     <h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">Stake {modalTokenTicker}</h3>
     
     <Label class="space-y-2">
-      <span class="flex justify-between"><p>Amount to stake</p> <button on:click={copyMaxAmount} style="cursor: pointer;">Max {modalMaxAmount}</button><p>min {minStakeAmount}</p></span>
+      <span class="flex justify-between"><p>Amount to stake</p> <button on:click={copyMaxAmount} id="copyMaxAmountStake" style="cursor: pointer;">Max {modalMaxAmount}</button><p>min {minStakeAmount}</p></span>
       <Input type="number" name="stakeAmount" required bind:value={sendAmount} max={modalMaxAmount} min={minStakeAmount} step="any" pattern="[0-9]+(\.[0-9]+)?" />
     </Label>
     
-    <Button type="submit" class="w-full1">Stake</Button>
+    <Button  class="w-full1" type="submit">Stake</Button>
     
   </form>
 </Modal>
@@ -909,7 +1173,7 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
       <Input type="number" name="unStakeAmount"   required bind:value={sendAmount} max={stakedSoul} min={minStakeAmount} step="any" pattern="[0-9]+(\.[0-9]+)?" />
     </Label>
     
-    <Button type="submit" class="w-full1">Unstake</Button>
+    <Button  class="w-full1" type="submit">Unstake</Button>
     
   </form>
 </Modal>
@@ -934,6 +1198,51 @@ function openUnStakeSoulModal(tokenTicker, maxAmount,decimals) {
       }} class="w-full">Cancel</Button>
   </div>
 </Modal>
+
+<Modal bind:open={sendNftModal} size="md" autoclose={false} class="w-full" id="sendNftModal">
+  <form on:submit|preventDefault={handleSendNft} class="flex flex-col space-y-2" action="">
+    <h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">Send {modalNftTicker} NFT</h3>
+    <Label class="space-y-2">
+      <span>To</span>
+      <Input type="text" name="To" placeholder="P2K..." required bind:value={toAddress} />
+    </Label>
+
+    <p class="mb-5 text-lg font-medium text-gray-900 dark:text-white">Select Nft:</p>
+    <div class="grid gap-2 w-full md:grid-cols-3">
+      {#each dataForShowSendNft as nftData}
+        <Checkbox custom on:click={()=>addRemoveFromNftList(nftData.id,nftData.ticker)} class="h-30 mb-2 px-2 py-2">
+          <div class="font-normal p-2 w-full text-gray-500 bg-white rounded-lg border-4 border-gray-200 cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-primary-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 overflow-hidden">
+            <div class="text-sm font-semibold text-nowrap text-clip flex">{getNftName(nftData)}</div>
+          
+            <Textarea name="nftDesc" id="nftDesc" readonly value={getNftDescription(nftData)} class="overflow-auto" />
+
+            
+           
+              <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 overflow-y-auto">
+              {#each nftData.infusion as infused}
+                <div>{infused.key}: {infused.value}</div>
+              {/each}
+            </div>
+            <Button class="min-w-full" size="xs" on:click={() => goToMarketPage(modalNftTicker, nftData.id)}>View</Button>
+          </div>
+        </Checkbox>
+      {/each}
+    </div>
+
+    <Label>Adjust Fee</Label>
+    <Range id="range-steps" min="10000" max="200000" bind:value={gasLimit} on:change={()=>checkFeeTokenBalanceIsEnough()} step="{feeAdjustStep}" />
+    <p>{feeAmount} Kcal, {feeWarning}</p>
+    <Button class="w-full1" type="submit">Send</Button>
+  </form>
+</Modal>
+
+<Toast  position="bottom-right" bind:open={openInfoToast} class="text-balance">{InfoMessage}</Toast>
+
+
+  
+
+
+
 
 
 

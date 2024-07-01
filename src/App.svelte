@@ -16,19 +16,18 @@
   } from "flowbite-svelte";
   import { DarkMode } from "flowbite-svelte";
   import Pools from "./router/Pools.svelte";
-  import SendToken from './router/SendToken.svelte'
+  
 </script>
 
-<Navbar >
+<Navbar>
     <NavBrand href="/">
-      <img src="/images/flowbite-svelte-icon-logo.svg" class="me-3 h-6 sm:h-9" alt="Flowbite Logo" />
+      <img src="src/assets/svelte.svg" class="me-3 h-6 sm:h-9" alt="Flowbite Logo" />
       <span class="self-center whitespace-nowrap text-xl font-semibold dark:text-white">Flowbite</span>
     </NavBrand>
     <NavHamburger  />
     <NavUl >     
       <NavLi href="/#/pools">Pools</NavLi>
       <NavLi href="/#/">Balances</NavLi> 
-      <NavLi href="/#/sendtoken">Send Token</NavLi>
     </NavUl>
     <DarkMode />
 </Navbar>
@@ -37,11 +36,8 @@
   
 <Router
   routes={{
-
     "/": Balances,
-    "/pools": Pools,
-    "/sendtoken": SendToken
-   
+    "/pools": Pools,  
   }}>
   </Router>
 

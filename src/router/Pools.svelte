@@ -8,65 +8,65 @@
     PhantasmaKeys,
     Transaction,
     Address,
-  } from "phantasma-ts/html/phantasma";
-  import { Input, Label, Checkbox, A } from "flowbite-svelte";
+  } from "phantasma-ts";
 
-  import { Card, Listgroup, Avatar, Button } from "flowbite-svelte";
-  import { FloatingLabelInput, Helper } from "flowbite-svelte";
-  import { bigIntToByteArray } from "phantasma-ts";
-
-  //const dotenv = require("dotenv");
-  //dotenv.config();
+  import {
+    Card,
+    Avatar,
+    Button,
+    FloatingLabelInput,
+    Toast,
+  } from "flowbite-svelte";
 
   // Set up Phantasma API and contract name
   const NexusName = "mainnet"; // or 'mainnet'
   const ChainName = "main"; // The chain name
-  const RPC = new PhantasmaAPI( // mainnet: https://pharpc1.phantasma.info/rpc Testnet: https://testnet.phantasma.info/rpc
-    "https://pharpc1.phantasma.info/rpc",
-    null,
-    NexusName
-  );
+  let RpcLink = "https://pharpc1.phantasma.info/rpc"; // mainnet: https://pharpc1.phantasma.info/rpc Testnet: https://testnet.phantasma.info/rpc
+
+  const RPC = new PhantasmaAPI(RpcLink, null, NexusName);
 
   const wif = import.meta.env.VITE_PRIVATE_KEY; // **************Replace with your WIF key**********************
   //console.log(wif);
   const keys = PhantasmaKeys.fromWIF(wif);
-  const expiration = new Date(new Date().getTime() + 36000000); // Transaction expiration (1 hour from now)
-  const gasPrice = 100000;
+  const expiration = 36000000; // Transaction expiration (1 hour from now)
+  const gasPrice = 110000;
   const gasLimit = 75000;
   const payload = Base16.encode("Ebisu");
   const contractAddress = "SATRN"; // contract name
-  const ContractName = "SATRN"; // Ensure this is correctly set in your .env file
-  let profitAmount = 0;
-  let arbAmount = 50;
-  let optimizedAmount = 0;
-  let tokenForArbitrage="SOUL";
-  const minProfit=0.75/100;
-  const feeTokenTicker="KCAL";
-  let isFeeTokenEnough=false;
-  let isHaveFeeToken=false;
-  let isHaveArbitrageToken=false;
-  let isOptimizationSuccessfull=false;
-  let isAuto=false;
-  
+  const feeTokenTicker = "KCAL";
+
+  let profitAmount: BigNumber = BigNumber(0);
+  let arbAmount = BigNumber(0);
+  let optimizedAmount = BigNumber(0);
+  let tokenForArbitrage = "SOUL";
+  const minProfit = 0.75 / 100;
+  const minArbAmount: BigNumber = BigNumber(1);
+  let isFeeTokenEnough = false;
+  let isHaveFeeToken = false;
+  let isHaveArbitrageToken = false;
+  let isOptimizationSuccessfull = false;
+  let isAuto = true;
+  let checkInterval = 60000; //1 min in milisec
+
   let feeTokenBalance: {
     Ticker: string;
     Amount: BigNumber;
     Decimals: number;
-  }={Ticker:"",Amount:BigNumber(0),Decimals:0};
+  } = { Ticker: "", Amount: BigNumber(0), Decimals: 0 };
   let arbitrageTokenBalance: {
     Ticker: string;
     Amount: BigNumber;
     Decimals: number;
-  }={Ticker:"",Amount:BigNumber(0),Decimals:0};
-
+  } = { Ticker: "", Amount: BigNumber(0), Decimals: 0 };
 
   let PoolsForArbitrage: {
+    //pushing amount here with decimals not raw
     PoolName: string;
     Token1Ticker: string;
-    Token1Amount: string;
+    Token1Amount: BigNumber;
     Token1Decimals: number;
     Token2Ticker: string;
-    Token2Amount: string;
+    Token2Amount: BigNumber;
     Token2Decimals: number;
     IsRelativePricePool: boolean;
     IsDivisorPool: boolean;
@@ -101,108 +101,117 @@
   );
 
   let InPoolForArb: {
+    //pushing amount here with decimals not raw
     PoolName: string;
     InTicker: string;
     IntickerDecimals: number;
-    InAmount: number;
+    InAmount: BigNumber;
     OutTicker: string;
     OutTickerDecimals: number;
     IsDivisorPool: boolean;
     IsRelativePricePool: boolean;
-    InTickerReserve: string;
-    OutTickerReserve: string;
+    InTickerReserve: BigNumber;
+    OutTickerReserve: BigNumber;
   } = {
     PoolName: "",
     InTicker: "",
-    InAmount: 0,
+    InAmount: BigNumber(0),
     OutTicker: "",
     IntickerDecimals: 0,
     OutTickerDecimals: 0,
     IsDivisorPool: false,
     IsRelativePricePool: false,
-    InTickerReserve: "",
-    OutTickerReserve: "",
+    InTickerReserve: BigNumber(0),
+    OutTickerReserve: BigNumber(0),
   };
   let OutPoolForArb: {
+    //pushing amount here with decimals not raw
     PoolName: string;
     InTicker: string;
     IntickerDecimals: number;
-    InAmount: number;
+    InAmount: BigNumber;
     OutTicker: string;
     OutTickerDecimals: number;
     IsDivisorPool: boolean;
     IsRelativePricePool: boolean;
-    InTickerReserve: string;
-    OutTickerReserve: string;
+    InTickerReserve: BigNumber;
+    OutTickerReserve: BigNumber;
   } = {
     PoolName: "",
     InTicker: "",
-    InAmount: 0,
+    InAmount: BigNumber(0),
     OutTicker: "",
     IntickerDecimals: 0,
     OutTickerDecimals: 0,
     IsDivisorPool: false,
     IsRelativePricePool: false,
-    InTickerReserve: "",
-    OutTickerReserve: "",
+    InTickerReserve: BigNumber(0),
+    OutTickerReserve: BigNumber(0),
   };
   let TransitPoolForArb: {
     PoolName: string;
     InTicker: string;
     IntickerDecimals: number;
-    InAmount: number;
+    InAmount: BigNumber;
     OutTicker: string;
     OutTickerDecimals: number;
     IsDivisorPool: boolean;
     IsRelativePricePool: boolean;
-    InTickerReserve: string;
-    OutTickerReserve: string;
+    InTickerReserve: BigNumber;
+    OutTickerReserve: BigNumber;
   } = {
     PoolName: "",
     InTicker: "",
-    InAmount: 0,
+    InAmount: BigNumber(0),
     OutTicker: "",
     IntickerDecimals: 0,
     OutTickerDecimals: 0,
     IsDivisorPool: false,
     IsRelativePricePool: false,
-    InTickerReserve: "",
-    OutTickerReserve: "",
+    InTickerReserve: BigNumber(0),
+    OutTickerReserve: BigNumber(0),
   };
 
-  
-
   async function getPoolReserves() {
+    //pushing amount here with decimals not raw
     let updatedPoolsForArbitrage: {
-    PoolName: string;
-    Token1Ticker: string;
-    Token1Amount: string;
-    Token1Decimals: number;
-    Token2Ticker: string;
-    Token2Amount: string;
-    Token2Decimals: number;
-    IsRelativePricePool: boolean;
-    IsDivisorPool: boolean;
-  }[] = [];
+      PoolName: string;
+      Token1Ticker: string;
+      Token1Amount: BigNumber;
+      Token1Decimals: number;
+      Token2Ticker: string;
+      Token2Amount: BigNumber;
+      Token2Decimals: number;
+      IsRelativePricePool: boolean;
+      IsDivisorPool: boolean;
+    }[] = [];
     console.log("Token Pairs\n" + TokenPairs + TokenPairs.length);
 
     // Map each pair to a Promise
     const promises = TokenPairs.map(async (pairElement): Promise<void> => {
       let sb = new ScriptBuilder();
-      sb.CallContract(ContractName, "getTokenPairAndReserveKeysOnListVALUE", [
-        pairElement.Token1Ticker +
-          "_" +
-          pairElement.Token2Ticker +
-          "_" +
-          pairElement.Token1Ticker,
-      ]);
-      sb.CallContract(ContractName, "getTokenPairAndReserveKeysOnListVALUE", [
-        pairElement.Token1Ticker +
-          "_" +
-          pairElement.Token2Ticker +
-          "_" +
-          pairElement.Token2Ticker,
-      ]);
+      sb.CallContract(
+        contractAddress,
+        "getTokenPairAndReserveKeysOnListVALUE",
+        [
+          pairElement.Token1Ticker +
+            "_" +
+            pairElement.Token2Ticker +
+            "_" +
+            pairElement.Token1Ticker,
+        ]
+      );
+      sb.CallContract(
+        contractAddress,
+        "getTokenPairAndReserveKeysOnListVALUE",
+        [
+          pairElement.Token1Ticker +
+            "_" +
+            pairElement.Token2Ticker +
+            "_" +
+            pairElement.Token2Ticker,
+        ]
+      );
       const script = sb.EndScript();
 
       let amounts = [];
@@ -215,71 +224,64 @@
           amounts.push(decoder.readVmObject());
         });
       } catch (error) {
-        console.log("An error happened" + error);
+        console.log("An error happened during getting pool reserves" + error);
       }
 
       updatedPoolsForArbitrage.push({
         PoolName: pairElement.Token1Ticker + "_" + pairElement.Token2Ticker,
         Token1Ticker: pairElement.Token1Ticker,
-        Token1Amount: BigNumber(amounts[0])
-          .shiftedBy(-pairElement.Token1Decimals)
-          .toFixed(),
+        Token1Amount: BigNumber(amounts[0]).shiftedBy(
+          -pairElement.Token1Decimals
+        ),
+
         Token1Decimals: pairElement.Token1Decimals,
         Token2Ticker: pairElement.Token2Ticker,
-        Token2Amount: BigNumber(amounts[1])
-          .shiftedBy(-pairElement.Token2Decimals)
-          .toFixed(),
+        Token2Amount: BigNumber(amounts[1]).shiftedBy(
+          -pairElement.Token2Decimals
+        ),
         Token2Decimals: pairElement.Token2Decimals,
         IsRelativePricePool: false,
         IsDivisorPool: false,
       });
     });
 
-    
-
-    
-
     // Wait for all promises to resolve
     await Promise.all(promises);
 
-    // updatedPoolsForArbitrage=[];
+    // updatedPoolsForArbitrage=[];       ////fake data for testing
     // updatedPoolsForArbitrage.push(
     //    {PoolName: "SOUL_KCAL",
     //     Token1Ticker: "SOUL",
-    //     Token1Amount: "3012.20230435",
+    //     Token1Amount: BigNumber("50000.20230435"),
     //     Token1Decimals: 8,
     //     Token2Ticker: "KCAL",
-    //     Token2Amount: "542556.413469642",
+    //     Token2Amount: BigNumber("10700000.413469642"),
     //     Token2Decimals: 10,
     //     IsRelativePricePool: false,
     //     IsDivisorPool: false,
-    //   },{ 
-        
-        
+    //   },{
+
     //     PoolName: "RAA_SOUL",
     //     Token1Ticker: "RAA",
-    //     Token1Amount: "70.1126716334343",
+    //     Token1Amount: BigNumber("400.1126716334343"),
     //     Token1Decimals: 18,
     //     Token2Ticker: "SOUL",
-    //     Token2Amount: "6157.88615802196",
+    //     Token2Amount: BigNumber("100.88615802196"),
     //     Token2Decimals: 8,
     //     IsRelativePricePool: false,
     //     IsDivisorPool: false},
-        
-        
-        
+
     //     {PoolName: "RAA_KCAL",
     //     Token1Ticker: "RAA",
-    //     Token1Amount: "24.5154566825775",
+    //     Token1Amount: BigNumber("24.5154566825775"),
     //     Token1Decimals: 18,
     //     Token2Ticker: "KCAL",
-    //     Token2Amount: "441628.920535605",
+    //     Token2Amount: BigNumber("441628.920535605"),
     //     Token2Decimals: 10,
     //     IsRelativePricePool: false,
     //     IsDivisorPool: false,}
 
     // );
-
 
     PoolsForArbitrage = updatedPoolsForArbitrage;
 
@@ -287,16 +289,24 @@
   }
 
   function calculateSwapOutV2(
-    inAmount: number,
-    inReserves: number,
-    outReserves: number
+    inAmount: BigNumber,
+    inReserves: BigNumber,
+    outReserves: BigNumber
   ) {
-    let outAmount = 0;
+    let outAmount: BigNumber = BigNumber(0);
     try {
-      if (inAmount > 0 && inReserves > 0 && outReserves > 0) {
-        outAmount =
-          outReserves -
-          (inReserves * outReserves) / ((inAmount * 997) / 1000 + inReserves);
+      if (
+        inAmount.isGreaterThan(0) &&
+        inReserves.isGreaterThan(0) &&
+        outReserves.isGreaterThan(0)
+      ) {
+        outAmount = outReserves.minus(
+          inReserves
+            .multipliedBy(outReserves)
+            .dividedBy(
+              inAmount.multipliedBy(997).dividedBy(1000).plus(inReserves)
+            )
+        );
 
         console.log("Calculate Swap Amount V2_" + outAmount);
       } else {
@@ -346,8 +356,9 @@
       console.log("need to select relative pool");
     }
 
-    PoolsForArbitrage.forEach((element) => {// checking pool tickers correctly arranged for calculation, wanted to be sure first token is arrangetokenticker
-      
+    PoolsForArbitrage.forEach((element) => {
+      // checking pool tickers correctly arranged for calculation, wanted to be sure first token is arrangetokenticker
+
       if (element.Token2Ticker === ArrangeTokenTicker) {
         let SwapToken1Ticker = element.Token1Ticker;
         let SwapToken1Amount = element.Token1Amount;
@@ -416,8 +427,7 @@
       }
     });
 
-    PoolsForArbitrage.forEach((element)=>{
-
+    PoolsForArbitrage.forEach((element) => {
       /*
       ***************************************************************************************************************
       arranging divident pool tickers for correctly calculate converted pool 
@@ -426,8 +436,11 @@
       *********************************************************************************************************************
       */
 
-      if(!element.IsDivisorPool && !element.IsRelativePricePool && element.Token2Ticker == relativePricePoolPrimaryTicker ){
-
+      if (
+        !element.IsDivisorPool &&
+        !element.IsRelativePricePool &&
+        element.Token2Ticker == relativePricePoolPrimaryTicker
+      ) {
         let SwapToken1Ticker = element.Token1Ticker;
         let SwapToken1Amount = element.Token1Amount;
         let SwapToken1Decimals = element.Token1Decimals;
@@ -444,11 +457,12 @@
         element.Token2Amount = SwapToken1Amount;
         element.Token2Decimals = SwapToken1Decimals;
       }
-
     });
-    console.log("\n%c********************_Arrranged pools_**********************\n,",'background:  #55fe01  ; color:   #fe0101 ');
+    console.log(
+      "\n%c********************_Arrranged pools_**********************\n,",
+      "background:  #55fe01  ; color:   #fe0101 "
+    );
     PoolsForArbitrage.forEach((element) => {
-      
       console.log(
         element.PoolName +
           "\n" +
@@ -467,19 +481,23 @@
           element.Token2Decimals +
           "\n" +
           "Is relative price pool_" +
-          element.IsRelativePricePool +"\n"+
+          element.IsRelativePricePool +
+          "\n" +
           "Is divider pool_" +
           element.IsDivisorPool
       );
     });
   }
 
-  function calculatePoolRatios(token1Amount: number, token2Amount: number) {
-    let poolRatios = token1Amount / token2Amount;
+  function calculatePoolRatio(
+    token1Amount: BigNumber,
+    token2Amount: BigNumber
+  ) {
+    let poolRatios = token1Amount.dividedBy(token2Amount);
     return poolRatios;
   }
 
-  function calculateArbitrageAmounts(inAmount: number) {
+  function calculateArbitrageAmounts(inAmount: BigNumber) {
     InPoolForArb.InAmount = inAmount;
 
     // TransitPoolForArb.InAmount = calculateSwapOut(
@@ -490,8 +508,8 @@
 
     TransitPoolForArb.InAmount = calculateSwapOutV2(
       InPoolForArb.InAmount,
-      BigNumber(InPoolForArb.InTickerReserve).toNumber(),
-      BigNumber(InPoolForArb.OutTickerReserve).toNumber()
+      BigNumber(InPoolForArb.InTickerReserve),
+      BigNumber(InPoolForArb.OutTickerReserve)
     );
 
     // OutPoolForArb.InAmount = calculateSwapOut(
@@ -502,8 +520,8 @@
 
     OutPoolForArb.InAmount = calculateSwapOutV2(
       TransitPoolForArb.InAmount,
-      BigNumber(TransitPoolForArb.InTickerReserve).toNumber(),
-      BigNumber(TransitPoolForArb.OutTickerReserve).toNumber()
+      BigNumber(TransitPoolForArb.InTickerReserve),
+      BigNumber(TransitPoolForArb.OutTickerReserve)
     );
 
     // let outAmount = calculateSwapOut(
@@ -514,11 +532,11 @@
 
     let outAmount = calculateSwapOutV2(
       OutPoolForArb.InAmount,
-      BigNumber(OutPoolForArb.InTickerReserve).toNumber(),
-      BigNumber(OutPoolForArb.OutTickerReserve).toNumber()
+      BigNumber(OutPoolForArb.InTickerReserve),
+      BigNumber(OutPoolForArb.OutTickerReserve)
     );
 
-    profitAmount = outAmount - inAmount;
+    profitAmount = outAmount.minus(inAmount);
 
     console.log(
       "Profit Amount_" + profitAmount + "_" + OutPoolForArb.OutTicker
@@ -575,12 +593,7 @@
     );
   }
 
-  async function findArbSwapRoute(
-    tokenToincrease: string
-    
-  ) {
-    
-
+  async function findArbSwapRoute(tokenToincrease: string) {
     arrangePoolTickersForCorrectRouteCalculation(tokenToincrease);
     console.log("Pool For arb have " + PoolsForArbitrage.length + " Pools");
 
@@ -595,8 +608,8 @@
       Token2Decimals: number;
       IsRelativePricePool: boolean;
       IsDivisorPool: boolean;
-      Token1Reserve: string;
-      Token2Reserve: string;
+      Token1Reserve: BigNumber;
+      Token2Reserve: BigNumber;
     } = {
       PoolName: "",
       Token1: "",
@@ -605,8 +618,8 @@
       Token2Decimals: 0,
       IsDivisorPool: false,
       IsRelativePricePool: false,
-      Token1Reserve: "",
-      Token2Reserve: "",
+      Token1Reserve: BigNumber(0),
+      Token2Reserve: BigNumber(0),
     };
     let divisorPoolInfo: {
       PoolName: string;
@@ -616,8 +629,8 @@
       Token2Decimals: number;
       IsRelativePricePool: boolean;
       IsDivisorPool: boolean;
-      Token1Reserve: string;
-      Token2Reserve: string;
+      Token1Reserve: BigNumber;
+      Token2Reserve: BigNumber;
     } = {
       PoolName: "",
       Token1: "",
@@ -626,11 +639,12 @@
       Token2Decimals: 0,
       IsDivisorPool: false,
       IsRelativePricePool: false,
-      Token1Reserve: "",
-      Token2Reserve: "",
+      Token1Reserve: BigNumber(0),
+      Token2Reserve: BigNumber(0),
     };
-    let transitPoolInfo: {      //this is not in or out pool middle pool
-      
+    let transitPoolInfo: {
+      //this is not in or out pool middle pool
+
       PoolName: string;
       Token1: string;
       Token1Decimals: number;
@@ -638,8 +652,8 @@
       Token2Decimals: number;
       IsRelativePricePool: boolean;
       IsDivisorPool: boolean;
-      Token1Reserve: string;
-      Token2Reserve: string;
+      Token1Reserve: BigNumber;
+      Token2Reserve: BigNumber;
     } = {
       PoolName: "",
       Token1: "",
@@ -648,15 +662,15 @@
       Token2Decimals: 0,
       IsDivisorPool: false,
       IsRelativePricePool: false,
-      Token1Reserve: "",
-      Token2Reserve: "",
-    }; 
+      Token1Reserve: BigNumber(0),
+      Token2Reserve: BigNumber(0),
+    };
 
     PoolsForArbitrage.forEach((element) => {
       if (element.IsRelativePricePool) {
-        relativePricePoolPrice = calculatePoolRatios(
-          BigNumber(element.Token1Amount).toNumber(),
-          BigNumber(element.Token2Amount).toNumber()
+        relativePricePoolPrice = calculatePoolRatio(
+          BigNumber(element.Token1Amount),
+          BigNumber(element.Token2Amount)
         );
         relativePoolInfo.Token1 = element.Token1Ticker;
         relativePoolInfo.Token2 = element.Token2Ticker;
@@ -667,10 +681,13 @@
         relativePoolInfo.IsRelativePricePool = element.IsRelativePricePool;
         relativePoolInfo.Token1Reserve = element.Token1Amount;
         relativePoolInfo.Token2Reserve = element.Token2Amount;
-      } else if (element.Token1Ticker!=tokenToincrease && element.Token2Ticker!=tokenToincrease) {
-        divisorPoolPrice = calculatePoolRatios(
-          BigNumber(element.Token1Amount).toNumber(),
-          BigNumber(element.Token2Amount).toNumber()
+      } else if (
+        element.Token1Ticker != tokenToincrease &&
+        element.Token2Ticker != tokenToincrease
+      ) {
+        divisorPoolPrice = calculatePoolRatio(
+          BigNumber(element.Token1Amount),
+          BigNumber(element.Token2Amount)
         );
         transitPoolInfo.Token1 = element.Token1Ticker;
         transitPoolInfo.Token2 = element.Token2Ticker;
@@ -685,9 +702,9 @@
         element.IsDivisorPool == false &&
         element.IsRelativePricePool == false
       ) {
-        dividentPoolPrice = calculatePoolRatios(
-          BigNumber(element.Token1Amount).toNumber(),
-          BigNumber(element.Token2Amount).toNumber()
+        dividentPoolPrice = calculatePoolRatio(
+          BigNumber(element.Token1Amount),
+          BigNumber(element.Token2Amount)
         );
         divisorPoolInfo.Token1 = element.Token1Ticker;
         divisorPoolInfo.Token2 = element.Token2Ticker;
@@ -703,8 +720,8 @@
 
     let convertedPoolPrice = dividentPoolPrice / divisorPoolPrice;
 
-    if (relativePricePoolPrice > convertedPoolPrice) {//finding swap route
-      
+    if (relativePricePoolPrice > convertedPoolPrice) {
+      //finding swap route
 
       InPoolForArb.InTicker = divisorPoolInfo.Token1;
       InPoolForArb.IntickerDecimals = divisorPoolInfo.Token1Decimals;
@@ -736,7 +753,6 @@
         transitPoolInfo.IsRelativePricePool;
       TransitPoolForArb.InTickerReserve = transitPoolInfo.Token1Reserve;
       TransitPoolForArb.OutTickerReserve = transitPoolInfo.Token2Reserve;
-
     } else if (relativePricePoolPrice < convertedPoolPrice) {
       InPoolForArb.InTicker = relativePoolInfo.Token1;
       InPoolForArb.IntickerDecimals = relativePoolInfo.Token1Decimals;
@@ -777,8 +793,8 @@
       let exchangeTicker2 = "";
       let exchangeDecimal1 = 0;
       let exchangeDecimal2 = 0;
-      let exchangeReserve1 = "0";
-      let exchangeReserve2 = "0";
+      let exchangeReserve1 = BigNumber(0);
+      let exchangeReserve2 = BigNumber(0);
 
       exchangeTicker1 = TransitPoolForArb.InTicker;
       exchangeTicker2 = TransitPoolForArb.OutTicker;
@@ -802,8 +818,8 @@
         "Converted pool price_" +
         convertedPoolPrice
     );
-    console.log("\n%c**************************_In/Out/Transit Pools_********************************\n"+
-      
+    console.log(
+      "\n%c**************************_In/Out/Transit Pools_********************************\n" +
         "In Pool_" +
         InPoolForArb.InTicker +
         "_" +
@@ -817,8 +833,9 @@
         "Out Pool_" +
         OutPoolForArb.InTicker +
         "_" +
-        OutPoolForArb.OutTicker
-    ,'background:  #55fe01  ; color:   #fe0101 ');
+        OutPoolForArb.OutTicker,
+      "background:  #55fe01  ; color:   #fe0101 "
+    );
   }
 
   function delay(time) {
@@ -826,7 +843,9 @@
   }
 
   async function sendArbTransaction() {
-    if (profitAmount > 0) {
+    let txExpiration = new Date(new Date().getTime() + expiration);
+
+    if (profitAmount.isGreaterThan(0) && arbAmount.isGreaterThan(0)) {
       const tokenIn = InPoolForArb.InTicker; // Symbol for Token In
       const tokenOut = InPoolForArb.OutTicker; // Symbol for Token Out
       const amountIn = new BigNumber(InPoolForArb.InAmount)
@@ -903,7 +922,7 @@
         NexusName,
         ChainName,
         script,
-        expiration,
+        txExpiration,
         payload
       );
       transaction.signWithKeys(keys);
@@ -932,92 +951,113 @@
   }
 
   function optimizeArbAmountv2() {
-    console.log("%c*****************OptimizationStarted***************\n"+InPoolForArb+"\n"+OutPoolForArb+"\n"+TransitPoolForArb+"\n",'background:  #55fe01  ; color:   #fe0101 ');
-    
-    
+    console.log(
+      "%c*****************OptimizationStarted***************\n" +
+        InPoolForArb +
+        "\n" +
+        OutPoolForArb +
+        "\n" +
+        TransitPoolForArb +
+        "\n",
+      "background:  #55fe01  ; color:   #fe0101 "
+    );
 
-    let poolReserveDifference = 0;
+    let amountForZeroProfit = BigNumber(0);
+    let poolReserveDifference = BigNumber(0);
     let stepPercent = 0.2; //20% error margin or correction rate
-    let precision = 0.0025;
+    let precision = 0.001;
+    let relativePoolPrice = BigNumber(0);
+    let conversionRateForTransitPoolInToken = BigNumber(0);
+    let convertedTransitPoolTokenReserveForInPool = BigNumber(0);
+    let conversionRateForTransitPoolOutToken = BigNumber(0);
+    let convertedTransitPoolTokenReserveForOutPool = BigNumber(0);
 
     if (InPoolForArb.IsRelativePricePool) {
       //Converting transit pool reserves to in/out pool reserves for token in/out which is same
 
-      let relativePoolPrice = 0;
-
-      relativePoolPrice =
-         BigNumber(InPoolForArb.InTickerReserve).toNumber()/BigNumber(InPoolForArb.OutTickerReserve).toNumber()
-        ;
-        
+      relativePoolPrice = BigNumber(InPoolForArb.InTickerReserve).dividedBy(
+        InPoolForArb.OutTickerReserve
+      );
 
       console.log("relativepool= in pool");
 
-      console.log(relativePoolPrice);
+      console.log("Relative Pool Price_" + relativePoolPrice.toFormat());
 
-      let conversionRateForTransitPoolInToken =
-        BigNumber(TransitPoolForArb.InTickerReserve).toNumber() /
-        BigNumber(InPoolForArb.OutTickerReserve).toNumber();
+      conversionRateForTransitPoolInToken = BigNumber(
+        TransitPoolForArb.InTickerReserve
+      ).dividedBy(InPoolForArb.OutTickerReserve);
 
-      let convertedTransitPoolTokenReserveForInPool =
-        conversionRateForTransitPoolInToken *
-        BigNumber(InPoolForArb.InTickerReserve).toNumber();
+      convertedTransitPoolTokenReserveForInPool =
+        conversionRateForTransitPoolInToken.multipliedBy(
+          InPoolForArb.InTickerReserve
+        );
 
-      console.log(convertedTransitPoolTokenReserveForInPool);
+      console.log(
+        "Converted token reserve for in pool_" +
+          convertedTransitPoolTokenReserveForInPool.toFormat()
+      );
 
-      let conversionRateForTransitPoolOutToken =
-        BigNumber(TransitPoolForArb.OutTickerReserve).toNumber() /
-        BigNumber(OutPoolForArb.InTickerReserve).toNumber();
+      conversionRateForTransitPoolOutToken = BigNumber(
+        TransitPoolForArb.OutTickerReserve
+      ).dividedBy(OutPoolForArb.InTickerReserve);
 
-      let convertedTransitPoolTokenReserveForOutPool =
-        conversionRateForTransitPoolOutToken *
-        BigNumber(OutPoolForArb.OutTickerReserve).toNumber();
+      convertedTransitPoolTokenReserveForOutPool =
+        conversionRateForTransitPoolOutToken.multipliedBy(
+          OutPoolForArb.OutTickerReserve
+        );
 
-      console.log(convertedTransitPoolTokenReserveForOutPool);
-
-      poolReserveDifference = Math.abs(
-        convertedTransitPoolTokenReserveForInPool -
-          convertedTransitPoolTokenReserveForOutPool
+      console.log(
+        "Converted token reserve for out pool_" +
+          convertedTransitPoolTokenReserveForOutPool.toFormat()
       );
     } else {
-      let relativePoolPrice = 0;
-
-      relativePoolPrice =
-        BigNumber(OutPoolForArb.OutTickerReserve).toNumber() /
-        BigNumber(OutPoolForArb.InTickerReserve).toNumber();
+      relativePoolPrice = calculatePoolRatio(
+        OutPoolForArb.OutTickerReserve,
+        OutPoolForArb.InTickerReserve
+      );
 
       console.log("relativepool  = out pool");
 
-      console.log(relativePoolPrice);
+      console.log("Relative Pool Price_" + relativePoolPrice.toFormat());
 
-      let conversionRateForTransitPoolInToken =
-        BigNumber(TransitPoolForArb.InTickerReserve).toNumber() /
-        BigNumber(InPoolForArb.OutTickerReserve).toNumber();
+      conversionRateForTransitPoolInToken = BigNumber(
+        TransitPoolForArb.InTickerReserve
+      ).dividedBy(InPoolForArb.OutTickerReserve);
 
-      let convertedTransitPoolTokenReserveForInPool =
-        conversionRateForTransitPoolInToken *
-        BigNumber(InPoolForArb.InTickerReserve).toNumber();
+      convertedTransitPoolTokenReserveForInPool =
+        conversionRateForTransitPoolInToken.multipliedBy(
+          InPoolForArb.InTickerReserve
+        );
 
-      console.log(convertedTransitPoolTokenReserveForInPool);
+      console.log(
+        "Converted token reserve for in pool_" +
+          convertedTransitPoolTokenReserveForInPool.toFormat()
+      );
 
-      let convertedTransitPoolTokenReserveForOutPool =
-        relativePoolPrice *
-        BigNumber(TransitPoolForArb.OutTickerReserve).toNumber();
+      convertedTransitPoolTokenReserveForOutPool =
+        relativePoolPrice.multipliedBy(TransitPoolForArb.OutTickerReserve);
 
-      console.log(convertedTransitPoolTokenReserveForOutPool);
-
-      poolReserveDifference = Math.abs(
-        convertedTransitPoolTokenReserveForInPool -
-          convertedTransitPoolTokenReserveForOutPool
+      console.log(
+        "Converted token reserve for out pool_" +
+          convertedTransitPoolTokenReserveForOutPool.toFormat()
       );
     }
 
-    let amountForZeroProfit =
-      poolReserveDifference *
-      (BigNumber(TransitPoolForArb.InTickerReserve).toNumber() /
-        BigNumber(InPoolForArb.OutTickerReserve).toNumber() /
-        (BigNumber(TransitPoolForArb.OutTickerReserve).toNumber() /
-          BigNumber(OutPoolForArb.InTickerReserve).toNumber()));
-    let shiftAmount = amountForZeroProfit * stepPercent;
+    poolReserveDifference = convertedTransitPoolTokenReserveForInPool.minus(
+      convertedTransitPoolTokenReserveForOutPool
+    );
+
+    amountForZeroProfit = poolReserveDifference.abs();
+    // if(poolReserveDifference.isGreaterThan(0)){
+    //   amountForZeroProfit =
+    // poolReserveDifference.dividedBy(TransitPoolForArb.InTickerReserve.dividedBy(InPoolForArb.OutTickerReserve).dividedBy(TransitPoolForArb.OutTickerReserve.dividedBy(OutPoolForArb.InTickerReserve))).abs();
+    // }else{
+    //   amountForZeroProfit =
+    // poolReserveDifference.multipliedBy(TransitPoolForArb.InTickerReserve.dividedBy(InPoolForArb.OutTickerReserve).dividedBy(TransitPoolForArb.OutTickerReserve.dividedBy(OutPoolForArb.InTickerReserve))).abs();
+
+    // }
+
+    let shiftAmount = amountForZeroProfit.multipliedBy(stepPercent);
     let tries = 0;
 
     console.log(
@@ -1028,46 +1068,65 @@
         "Step Percent_" +
         stepPercent
     );
-    const maxGuess=2*amountForZeroProfit;
-    const minGuess=2*minProfit;
+    const maxGuess = amountForZeroProfit.multipliedBy(2);
+    const minGuess = minArbAmount.multipliedBy(2);
     calculateArbitrageAmounts(amountForZeroProfit);
 
     while (tries < 50) {
       tries++;
-      
-       
+
       console.log(
-        "%cStepPercent_" + stepPercent + "\nShift Amount_" + shiftAmount +"\nMin guess "+BigNumber(minGuess).toNumber() + "\nMax Guess "+maxGuess +"\nAmount For Zero Profit_" + BigNumber(amountForZeroProfit).toNumber()+"\nPrecision "+precision
-        ,' color:   #55fe01 ');
-      
-      if (BigNumber(profitAmount).isLessThan(0) && BigNumber(amountForZeroProfit).isGreaterThan(shiftAmount)) {
-        amountForZeroProfit = amountForZeroProfit - shiftAmount;
+        "%cStepPercent_" +
+          stepPercent +
+          "\nShift Amount_" +
+          shiftAmount +
+          "\nMin guess " +
+          BigNumber(minGuess).toNumber() +
+          "\nMax Guess " +
+          maxGuess +
+          "\nAmount For Zero Profit_" +
+          BigNumber(amountForZeroProfit).toNumber() +
+          "\nPrecision " +
+          precision,
+        " color:   #55fe01 "
+      );
+
+      if (
+        profitAmount.isLessThan(0) &&
+        amountForZeroProfit.isGreaterThan(shiftAmount)
+      ) {
+        amountForZeroProfit = amountForZeroProfit.minus(shiftAmount);
+        // if (shiftAmount.isGreaterThanOrEqualTo(amountForZeroProfit)) {
+        //   amountForZeroProfit = shiftAmount.dividedBy(2);
+        // }
         calculateArbitrageAmounts(amountForZeroProfit);
 
-        if (profitAmount > 0) {
+        if (profitAmount.isGreaterThan(0)) {
           stepPercent = stepPercent / 2;
-          shiftAmount = amountForZeroProfit * stepPercent;
+          shiftAmount = amountForZeroProfit.multipliedBy(stepPercent);
         }
-        
-      } else if (profitAmount>0 && amountForZeroProfit<maxGuess) {
-        amountForZeroProfit = amountForZeroProfit + shiftAmount;
+      } else if (
+        profitAmount.isGreaterThan(0) &&
+        amountForZeroProfit.isLessThan(maxGuess)
+      ) {
+        amountForZeroProfit = amountForZeroProfit.plus(shiftAmount);
         calculateArbitrageAmounts(amountForZeroProfit);
 
-        if (profitAmount < 0 ) {
+        if (profitAmount.isLessThan(0)) {
           stepPercent = stepPercent / 2;
-          shiftAmount = amountForZeroProfit * stepPercent;
+          shiftAmount = amountForZeroProfit.multipliedBy(stepPercent);
         }
       }
 
-      if(BigNumber(shiftAmount).isGreaterThanOrEqualTo(amountForZeroProfit)){
-        shiftAmount=shiftAmount/2;
+      if (BigNumber(amountForZeroProfit).isLessThanOrEqualTo(shiftAmount.multipliedBy(2))) {
+        shiftAmount = amountForZeroProfit.multipliedBy(stepPercent);
       }
 
-      console.log("Shift amount after check"+shiftAmount)
+      console.log("Shift amount after check" + shiftAmount.toFormat());
 
-      if(BigNumber(amountForZeroProfit).isLessThanOrEqualTo(minGuess)){
-        console.log("amountForZeroProfit less than min guess")
-        isOptimizationSuccessfull=false;
+      if (BigNumber(amountForZeroProfit).isLessThanOrEqualTo(minGuess)) {
+        console.log("amountForZeroProfit less than min guess");
+        isOptimizationSuccessfull = false;
         break;
       }
 
@@ -1075,246 +1134,414 @@
         console.log("max precision reached");
         break;
       }
-
-      
     }
-    optimizedAmount = amountForZeroProfit / 2;
-      arbAmount = optimizedAmount;
-      calculateArbitrageAmounts(arbAmount);
-    if (profitAmount>minProfit){
-      isOptimizationSuccessfull=true;
-    }else{isOptimizationSuccessfull=false;
-      arbAmount=0;
-      optimizedAmount=0;
-      profitAmount=0;
+    optimizedAmount = amountForZeroProfit.dividedBy(2);
+    arbAmount = optimizedAmount;
+    calculateArbitrageAmounts(arbAmount);
+    if (profitAmount.isGreaterThan(minProfit)) {
+      isOptimizationSuccessfull = true;
+    } else {
+      isOptimizationSuccessfull = false;
+      arbAmount = BigNumber(0);
+      optimizedAmount = BigNumber(0);
+      profitAmount = BigNumber(0);
     }
 
-    console.log("%c*****************************************************************\n"+"*  Optimization ended after trying "+ tries+" times, is success "+isOptimizationSuccessfull +"  *" + "*\n"+"*****************************************************************",'background:  #55fe01  ; color:   #fe0101 ');
-    
-    
+    console.log(
+      "%c*****************************************************************\n" +
+        "*  Optimization ended after trying " +
+        tries +
+        " times, is success " +
+        isOptimizationSuccessfull +
+        "  *" +
+        "*\n" +
+        "*****************************************************************",
+      "background:  #55fe01  ; color:   #fe0101 "
+    );
+    if (isOptimizationSuccessfull) {
+      playNotification();
+    }
   }
 
+  function playNotification() {
+    let notificationSound = document.getElementById("successNotificationSound");
+    if (notificationSound instanceof HTMLAudioElement) {
 
-async function checkBalancesIsCorrectForArb() {
-  let updatedFeeTokenBalance: {
-    Ticker: string;
-    Amount: BigNumber;
-    Decimals: number;
-  };
-  let updatedArbitrageTokenBalance: {
-    Ticker: string;
-    Amount: BigNumber;
-    Decimals: number;
-  };
-  isHaveFeeToken=false;
-  isHaveArbitrageToken=false;
-  try {
-
-      const balanceResponseForArb = await RPC.getAccount(keys.Address.toString(),true);
-
-      console.log("Balances for arb\n"+balanceResponseForArb);
-      const balancePromises = balanceResponseForArb.balances.map(async (element): Promise<void> => {
+      if(notificationSound.paused || notificationSound.ended){
+        notificationSound.play();
+      }
       
-        console.log("balance"+element.amount+element.symbol);
+    } else {
+      console.error("Element is not an HTMLAudioElement");
+    }
+  }
 
-      if(element.symbol===tokenForArbitrage && element.symbol===feeTokenTicker) {
-        updatedFeeTokenBalance = {Ticker:element.symbol,Amount:BigNumber(element.amount),Decimals:element.decimals};
-        updatedArbitrageTokenBalance={Ticker:element.symbol,Amount:BigNumber(element.amount),Decimals:element.decimals};
-        isHaveArbitrageToken=true;
-        isHaveFeeToken=true;      
-      }else if(element.symbol===tokenForArbitrage){
-        updatedArbitrageTokenBalance={Ticker:element.symbol,Amount:BigNumber(element.amount),Decimals:element.decimals};
-        isHaveArbitrageToken=true;
-      } else if(element.symbol===feeTokenTicker){
-        updatedFeeTokenBalance = {Ticker:element.symbol,Amount:BigNumber(element.amount),Decimals:element.decimals};
-        isHaveFeeToken=true;
+  async function checkBalancesIsCorrectForArb() {
+    let updatedFeeTokenBalance: {
+      Ticker: string;
+      Amount: BigNumber;
+      Decimals: number;
+    };
+    let updatedArbitrageTokenBalance: {
+      Ticker: string;
+      Amount: BigNumber;
+      Decimals: number;
+    };
+    isHaveFeeToken = false;
+    isHaveArbitrageToken = false;
+    try {
+      const balanceResponseForArb = await RPC.getAccount(
+        keys.Address.toString(),
+        true
+      );
+
+      console.log("Balances for arb\n" + balanceResponseForArb);
+      const balancePromises = balanceResponseForArb.balances.map(
+        async (element): Promise<void> => {
+          console.log("balance" + element.amount + element.symbol);
+
+          if (
+            element.symbol === tokenForArbitrage &&
+            element.symbol === feeTokenTicker
+          ) {
+            updatedFeeTokenBalance = {
+              Ticker: element.symbol,
+              Amount: BigNumber(element.amount).shiftedBy(-element.decimals),
+              Decimals: element.decimals,
+            };
+            updatedArbitrageTokenBalance = {
+              Ticker: element.symbol,
+              Amount: BigNumber(element.amount).shiftedBy(-element.decimals),
+              Decimals: element.decimals,
+            };
+            isHaveArbitrageToken = true;
+            isHaveFeeToken = true;
+          } else if (element.symbol === tokenForArbitrage) {
+            updatedArbitrageTokenBalance = {
+              Ticker: element.symbol,
+              Amount: BigNumber(element.amount).shiftedBy(-element.decimals),
+              Decimals: element.decimals,
+            };
+            isHaveArbitrageToken = true;
+          } else if (element.symbol === feeTokenTicker) {
+            updatedFeeTokenBalance = {
+              Ticker: element.symbol,
+              Amount: BigNumber(element.amount).shiftedBy(-element.decimals),
+              Decimals: element.decimals,
+            };
+            isHaveFeeToken = true;
+          }
+        }
+      );
+      await Promise.all(balancePromises);
+      arbitrageTokenBalance = {
+        Ticker: updatedArbitrageTokenBalance.Ticker,
+        Amount: updatedArbitrageTokenBalance.Amount,
+        Decimals: updatedArbitrageTokenBalance.Decimals,
+      };
+      feeTokenBalance = {
+        Ticker: updatedFeeTokenBalance.Ticker,
+        Amount: updatedFeeTokenBalance.Amount,
+        Decimals: updatedFeeTokenBalance.Decimals,
+      };
+    } catch (error) {
+      console.log("Error happened to get balances", error);
+    }
+
+    console.log(
+      "Arbitrage Token Balance:\n" +
+        arbitrageTokenBalance.Amount +
+        arbitrageTokenBalance.Ticker +
+        arbitrageTokenBalance.Decimals
+    );
+    console.log(
+      "Fee token Balance:\n" +
+        feeTokenBalance.Amount +
+        feeTokenBalance.Ticker +
+        feeTokenBalance.Decimals
+    );
+
+    if (isHaveArbitrageToken && isHaveFeeToken) {
+      console.log("Address have arbitrage and fee Token");
+      return true;
+    } else {
+      console.log(
+        "Address dont have " +
+          tokenForArbitrage +
+          " or fee token " +
+          feeTokenTicker
+      );
+      return false;
+    }
+  }
+
+  function checkBalancesAndFeeIsEnoughForArbitrage() {
+    let isArbPossible = false;
+    let feeAmount = BigNumber(gasPrice)
+      .multipliedBy(gasLimit)
+      .shiftedBy(-feeTokenBalance.Decimals);
+
+    console.log(
+      "required Arb token Amount:\n" +
+        arbAmount.toFormat() +
+        " " +
+        arbitrageTokenBalance.Ticker +
+        "\nrequired Fee token amount:\n" +
+        feeAmount.toFormat() +
+        " " +
+        feeTokenBalance.Ticker
+    );
+
+    try {
+      if (BigNumber(feeTokenBalance.Amount).isGreaterThan(feeAmount)) {
+        isFeeTokenEnough = true;
+        isArbPossible = true;
+        console.log(
+          "Fee token enough\n" +
+            "Address have\t" +
+            feeTokenBalance.Amount.toFormat() +
+            " " +
+            feeTokenTicker
+        );
+      } else {
+        isFeeTokenEnough = false;
+        isArbPossible = false;
+        console.log(
+          "You need more fee token " +
+            "min " +
+            feeAmount.toFixed() +
+            " " +
+            "Kcal"
+        );
       }
 
+      if (
+        tokenForArbitrage === feeTokenTicker &&
+        arbitrageTokenBalance.Amount.isGreaterThan(arbAmount) &&
+        isFeeTokenEnough &&
+        isHaveArbitrageToken
+      ) {
+        console.log("Arb token is fee token");
+
+        let isFeeTokenEnoughForArbitrage =
+          arbitrageTokenBalance.Amount.isGreaterThan(arbAmount.plus(feeAmount));
+
+        if (isFeeTokenEnoughForArbitrage) {
+          isArbPossible = true;
+          console.log("Arbitrage token enough");
+        } else {
+          arbAmount = arbitrageTokenBalance.Amount.minus(feeAmount);
+          calculateArbitrageAmounts(arbAmount);
+          console.log(
+            "Arbitrage token enough but need to deduct fees from arb amount, new arb Amount_" +
+              arbAmount.toFormat()
+          );
+          isArbPossible = true;
+        }
+      } else if (
+        arbitrageTokenBalance.Amount.isGreaterThanOrEqualTo(arbAmount) &&
+        isFeeTokenEnough &&
+        isHaveArbitrageToken
+      ) {
+        isArbPossible = true;
+        console.log(
+          "Arbitrage token enough\n" +
+            "Address have\t" +
+            arbitrageTokenBalance.Amount.toFormat() +
+            " " +
+            arbitrageTokenBalance.Ticker
+        );
+      } else if (
+        arbitrageTokenBalance.Amount.isLessThan(arbAmount) &&
+        isFeeTokenEnough &&
+        isHaveArbitrageToken
+      ) {
+        isArbPossible = true;
+        arbAmount = arbitrageTokenBalance.Amount;
+        calculateArbitrageAmounts(arbAmount);
+        console.log(
+          "Arbitrage token not enough need to set it to max balance, new arb Amount_" +
+            arbAmount.toFormat()
+        );
+      } else {
+        isArbPossible = false;
+      }
+
+      return isArbPossible;
+    } catch (error) {
+      console.log(
+        "error happened in checkBalancesAndFeeIsEnoughForArbitrage\n" + error
+      );
+    }
+  }
+
+  function main() {
+    checkBalancesIsCorrectForArb().then(() => {
+      if (isHaveArbitrageToken && isHaveFeeToken) {
+        getPoolReserves().then(() => {
+          findArbSwapRoute(tokenForArbitrage)
+            .then(() => {
+              optimizeArbAmountv2();
+            })
+            .then(() => {
+              checkBalancesAndFeeIsEnoughForArbitrage();
+            })
+            .then(() => {
+              if (
+                profitAmount.isGreaterThan(minProfit) &&
+                isFeeTokenEnough &&
+                isHaveArbitrageToken &&
+                isAuto &&
+                isOptimizationSuccessfull
+              ) {
+                sendArbTransaction().then(() => main());
+              }
+            });
+        });
+      }
     });
-        await Promise.all(balancePromises);
-        arbitrageTokenBalance={Ticker:updatedArbitrageTokenBalance.Ticker,Amount:updatedArbitrageTokenBalance.Amount,Decimals:updatedArbitrageTokenBalance.Decimals};
-        feeTokenBalance={Ticker:updatedFeeTokenBalance.Ticker,Amount:updatedFeeTokenBalance.Amount,Decimals:updatedFeeTokenBalance.Decimals};
- 
-    }catch(error){
-       console.log("Error happened to get balances",error)
-      };
-
-        
-
-        console.log("Arbitrage Token Balance:\n"+arbitrageTokenBalance.Amount+arbitrageTokenBalance.Ticker+arbitrageTokenBalance.Decimals);
-        console.log("Fee token BAlance:\n"+feeTokenBalance.Amount+feeTokenBalance.Ticker+feeTokenBalance.Decimals);
-
-        if(isHaveArbitrageToken && isHaveFeeToken){
-          console.log("Address have arbitrage and fee Token");
-          return true;
-        }else{
-          console.log("Address dont have "+tokenForArbitrage+" or fee token "+feeTokenTicker);
-          return false;};
-
-}
-
-function checkBalancesAndFeeIsEnoughForArbitrage(){
-  let isArbPossible=false;
-  let bigArbAmount=BigNumber(arbAmount).shiftedBy(arbitrageTokenBalance.Decimals);
-  let bigFeeAmount=BigNumber(gasPrice).multipliedBy(gasLimit);
-  
-
-  console.log("big Arb Amount: "+bigArbAmount.shiftedBy(-arbitrageTokenBalance.Decimals).toFormat());
-  console.log("big fee amount: "+bigFeeAmount.shiftedBy(-feeTokenBalance.Decimals).toFormat());
-  
-  
-try{
-
-  if(BigNumber(feeTokenBalance.Amount).isGreaterThan(bigFeeAmount)){
-    isFeeTokenEnough=true;
-    isArbPossible=true;
-    console.log("Fee token enough");
-  }else{
-    isFeeTokenEnough=false;
-    isArbPossible=false;
-    console.log("You need more fee token " + "min "+bigFeeAmount.shiftedBy(-feeTokenBalance.Decimals).toFixed()+ " "+ "Kcal" );
   }
 
-  if(tokenForArbitrage===feeTokenTicker && arbitrageTokenBalance.Amount.isGreaterThan(bigArbAmount) && isFeeTokenEnough && isHaveArbitrageToken){
-      console.log("Arb token is fee token");
-      
-      let isFeeTokenEnoughForArbitrage=arbitrageTokenBalance.Amount.isGreaterThan(bigArbAmount.plus(bigFeeAmount));
-
-    if(isFeeTokenEnoughForArbitrage){
-      isArbPossible=true;
-      console.log("Arbitrage token enough");
-    }else{
-      
-      bigArbAmount=arbitrageTokenBalance.Amount.minus(bigFeeAmount);
-      console.log("Arbitrage token enough but need to deduct fees from arb amount, new arb Amount_"+bigArbAmount.shiftedBy(-arbitrageTokenBalance.Decimals).toFormat());
-      isArbPossible=true;
-    }
-    
-       
-  }else if (arbitrageTokenBalance.Amount.isGreaterThanOrEqualTo(bigArbAmount) && isFeeTokenEnough && isHaveArbitrageToken){
-    isArbPossible=true;
-    console.log("Arbitrage token enough");
-  }else if (arbitrageTokenBalance.Amount.isLessThan(bigArbAmount) && isFeeTokenEnough && isHaveArbitrageToken ){
-    isArbPossible=true;
-    arbAmount=arbitrageTokenBalance.Amount.shiftedBy(-arbitrageTokenBalance.Decimals).toNumber();
-    console.log("Arbitrage token not enough need to set it to max balance, new arb Amount_"+arbAmount);
-  }else{isArbPossible=false;}
-
-  return isArbPossible;
-}catch(error){console.log("error happened in checkBalancesAndFeeIsEnoughForArbitrage\n"+error)}
-
-}
-
-function main(){
-  
-  
-  checkBalancesIsCorrectForArb().then(()=>{
-    if(isHaveArbitrageToken && isHaveFeeToken){
-      getPoolReserves().then(()=>{
-        findArbSwapRoute(tokenForArbitrage).then(()=>{
-          optimizeArbAmountv2()
-        }).then(()=>{
-          checkBalancesAndFeeIsEnoughForArbitrage()
-        }).then(()=>{
-          if(profitAmount>minProfit && isFeeTokenEnough && isHaveArbitrageToken && isAuto && isOptimizationSuccessfull){
-            sendArbTransaction().then(()=>checkBalancesIsCorrectForArb().then(()=>getPoolReserves()))
-          }
-        })
-
-
-
-
-
-
-
-
-
-
-      })
-    }
-    
-  
-  
-  
-  
-  
-  
-  
-  }
-); 
-
-
-
-
-}
-
+  let intervalId;
   function runWithInterval() {
-    // Initial call
     main();
 
-    // Set interval to call getPoolReserves() every 5 minutes
-    setInterval(async () => {
+    intervalId = setInterval(async () => {
       main();
-    }, 300000); // 5 minutes in milliseconds
+    }, checkInterval);
   }
 
-  // Start running with interval
   runWithInterval();
+
+  console.log("Interval ID for Main_" + intervalId);
 </script>
 
+<div
+  class="text-gray-900 dark:text-white flex flex-col items-center justify-center"
+>
+  <div class="grid grid-cols-1 gap-2 w-full max-w-md">
+    {#each PoolsForArbitrage as pool}
+      <Card padding="md" size="lg" class="w-full">
+        <div class="flex justify-center items-center mb-4">
+          <h5 class="text-xl font-bold leading-none">{pool.PoolName}</h5>
+        </div>
 
-<div class="text-gray-900 dark:text-white flex flex-col items-center justify-center">
-    <div class="grid grid-cols-1 gap-2 w-full max-w-md">
-      {#each PoolsForArbitrage as pool}
-        <Card padding="md" size="lg" class="w-full">
-          <div class="flex justify-center items-center mb-4">
-            <h5 class="text-xl font-bold leading-none">{pool.PoolName}</h5>
+        <div class="flex items-center space-x-2 rtl:space-x-reverse">
+          <Avatar
+            src="../src/assets/{pool.Token1Ticker}.png"
+            alt={pool.Token1Ticker}
+            onerror="this.onerror=null;this.src='../src/assets/UNKNOWN.png';"
+            class="flex-shrink-0"
+            rounded
+          />
+          <div class="flex-1 min-w-0">
+            <p
+              class="text-sm font-medium text-gray-900 truncate dark:text-white"
+            >
+              {pool.Token1Ticker}
+            </p>
+            <p class="text-sm text-gray-500 truncate dark:text-gray-400">
+              {pool.Token1Amount}
+            </p>
           </div>
-  
-          <div class="flex items-center space-x-2 rtl:space-x-reverse">
-            <Avatar
-              src="../src/assets/{pool.Token1Ticker}.png"
-              alt={pool.Token1Ticker}
-              onerror="this.onerror=null;this.src='../src/assets/UNKNOWN.png';"
-              class="flex-shrink-0"
-              rounded
-            />
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900 truncate dark:text-white">{pool.Token1Ticker}</p>
-              <p class="text-sm text-gray-500 truncate dark:text-gray-400">{pool.Token1Amount}</p>
-            </div>
-            <Avatar
-              src="../src/assets/{pool.Token2Ticker}.png"
-              alt={pool.Token2Ticker}
-              class="flex-shrink-0"
-              rounded
-            />
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900 truncate dark:text-white">{pool.Token2Ticker}</p>
-              <p class="text-sm text-gray-500 truncate dark:text-gray-400">{pool.Token2Amount}</p>
-            </div>
+          <Avatar
+            src="../src/assets/{pool.Token2Ticker}.png"
+            alt={pool.Token2Ticker}
+            class="flex-shrink-0"
+            rounded
+          />
+          <div class="flex-1 min-w-0">
+            <p
+              class="text-sm font-medium text-gray-900 truncate dark:text-white"
+            >
+              {pool.Token2Ticker}
+            </p>
+            <p class="text-sm text-gray-500 truncate dark:text-gray-400">
+              {pool.Token2Amount}
+            </p>
           </div>
-        </Card>
-      {/each}
-    </div>
-  
-    <div class="grid gap-2 grid-cols-2 mt-4 w-full max-w-md">
-      <Button color="light" size="md" class="mr-1 mt-1" on:click={() => getPoolReserves()}>Update Pair Reserves</Button>
-      <Button color="light" size="md" class="mr-1 mt-1" on:click={() => findArbSwapRoute("SOUL")}>Find Route</Button>
-    </div>
-  
-    <div class="grid gap-2 grid-cols-2 mt-4 w-full max-w-md">
-      <Button color="light" size="md" class="mr-1 mt-1" on:click={() => optimizeArbAmountv2()}>Optimize Amount</Button>
-      <FloatingLabelInput style="outlined" id="floating_filled" name="floating_filled" type="number" label="Optimized Amount" readonly value={optimizedAmount} class="mr-1 mt-1"></FloatingLabelInput>
-    </div>
-  
-    <div class="grid gap-2 grid-cols-2 mt-4 w-full max-w-md">
-      <FloatingLabelInput style="outlined" id="floating_filled" name="floating_filled" type="number" label="Arbitrage Amount" class="mr-1 mt-1" bind:value={arbAmount} on:keyup={() => calculateArbitrageAmounts(arbAmount)}></FloatingLabelInput>
-      <FloatingLabelInput style="outlined" color="green" id="floating_filled" name="floating_filled" type="number" label="Profit Amount" class="mr-1 mt-1" readonly value={profitAmount}></FloatingLabelInput>
-    </div>
-  
-    <div class="grid gap-2 grid-cols-1 mt-4 w-full max-w-md">
-      <Button outline color="red" size="md" class="mr-1 mt-1" on:click={() => sendArbTransaction().then((txHash) => { console.log("Transaction sent successfully. Hash: ", txHash); getPoolReserves(); }).catch((error) => { console.error("Error in sendATransaction: ", error); })}>Send Arb Tx</Button>
-    </div>
+        </div>
+      </Card>
+    {/each}
   </div>
-  
+
+  <div class="grid gap-2 grid-cols-2 mt-4 w-full max-w-md">
+    <Button
+      color="light"
+      size="md"
+      class="mr-1 mt-1"
+      on:click={() => getPoolReserves()}>Update Pair Reserves</Button
+    >
+    <Button
+      color="light"
+      size="md"
+      class="mr-1 mt-1"
+      on:click={() => findArbSwapRoute("SOUL")}>Find Route</Button
+    >
+  </div>
+
+  <div class="grid gap-2 grid-cols-2 mt-4 w-full max-w-md">
+    <Button
+      color="light"
+      size="md"
+      class="mr-1 mt-1"
+      on:click={() => optimizeArbAmountv2()}>Optimize Amount</Button
+    >
+    <FloatingLabelInput
+      style="outlined"
+      id="floating_filled"
+      name="floating_filled"
+      type="number"
+      label="Optimized Amount"
+      readonly
+      value={optimizedAmount}
+      class="mr-1 mt-1"
+    ></FloatingLabelInput>
+  </div>
+
+  <div class="grid gap-2 grid-cols-2 mt-4 w-full max-w-md">
+    <FloatingLabelInput
+      style="outlined"
+      id="floating_filled"
+      name="floating_filled"
+      type="number"
+      label="Arbitrage Amount"
+      class="mr-1 mt-1"
+      bind:value={arbAmount.toNumber}
+      on:change={() => calculateArbitrageAmounts(arbAmount)}
+    ></FloatingLabelInput>
+    <FloatingLabelInput
+      style="outlined"
+      color="green"
+      id="floating_filled"
+      name="floating_filled"
+      type="number"
+      label="Profit Amount"
+      class="mr-1 mt-1"
+      readonly
+      value={profitAmount}
+    ></FloatingLabelInput>
+  </div>
+
+  <div class="grid gap-2 grid-cols-1 mt-4 w-full max-w-md">
+    <Button
+      outline
+      color="red"
+      size="md"
+      class="mr-1 mt-1"
+      on:click={() =>
+        sendArbTransaction()
+          .then((txHash) => {
+            console.log("Transaction sent successfully. Hash: ", txHash);
+            getPoolReserves();
+          })
+          .catch((error) => {
+            console.error("Error in sendATransaction: ", error);
+          })}>Send Arb Tx</Button
+    >
+  </div>
+</div>
+
+<audio src="../src/assets/sounds/success.mp3" id="successNotificationSound"
+></audio>
+
