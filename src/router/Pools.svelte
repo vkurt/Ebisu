@@ -25,7 +25,7 @@
 
   const RPC = new PhantasmaAPI(RpcLink, null, NexusName);
 
-  const wif = import.meta.env.VITE_PRIVATE_KEY; // **************Replace with your WIF key**********************
+  const wif = import.meta.env.VITE_PRIVATE_KEY; // **************Replace with your WIF key********************** set up your .env.local data
   //console.log(wif);
   const keys = PhantasmaKeys.fromWIF(wif);
   const expiration = 36000000; // Transaction expiration (1 hour from now)
